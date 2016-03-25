@@ -1,0 +1,223 @@
+# Getting and Cleaning Data 
+
+# Course Assignment
+
+## Instructions
+
+The purpose of this project is to demonstrate your ability to collect, work with, and clean a data set.
+
+### *Review criteria*
+
+* The submitted data set is tidy. 
+
+* The Github repo contains the required scripts.
+
+* GitHub contains a code book that modifies and updates the available codebooks with the data to indicate all the variables and summaries calculated, along with units, and any other relevant information.
+
+* The README that explains the analysis files is clear and understandable.
+
+* The work submitted for this project is the work of the student who submitted it.
+ 
+### *Getting and Cleaning Data Course Project*
+
+The purpose of this project is to demonstrate your ability to collect, work with, and clean a data set. 
+
+The goal is to prepare tidy data that can be used for later analysis. 
+
+You will be graded by your peers on a series of yes/no questions related to the project. 
+
+You will be required to submit: 
+
+* a tidy data set as described below, 
+
+* a link to a Github repository with your script for performing the analysis, and 
+
+* a code book that describes the variables, the data, and any transformations or work that you performed to clean up the data called CodeBook.md. 
+
+You should also include a README.md in the repo with your scripts. This repo explains how all of the scripts work and how they are connected.
+
+One of the most exciting areas in all of data science right now is wearable computing - see for example this article . 
+Companies like Fitbit, Nike, and Jawbone Up are racing to develop the most advanced algorithms to attract new users. 
+The data linked to from the course website represent data collected from the accelerometers from the Samsung Galaxy S smartphone. 
+
+A full description is available at the site where the data was obtained: 
+(http://archive.ics.uci.edu/ml/datasets/Human+Activity+Recognition+Using+Smartphones)
+ 
+Here are the data for the project: 
+(https://d396qusza40orc.cloudfront.net/getdata%2Fprojectfiles%2FUCI%20HAR%20Dataset.zip)
+
+You should create one R script called run_analysis.R that does the following. 
+* Merges the training and the test sets to create one data set.
+
+* Extracts only the measurements on the mean and standard deviation for each measurement. 
+
+* Uses descriptive activity names to name the activities in the data set
+
+* Appropriately labels the data set with descriptive variable names. 
+
+* From the data set in step 4, creates a second, independent tidy data set with the average of each variable for each activity and each subject.
+
+*Good luck!*
+
+**____________________________________________________________________________**
+
+* Require "plyr", "dplyr" & "reshape2" packages
+
+```{r message=FALSE, warning=FALSE}
+library(plyr)
+library(dplyr)
+library(reshape2)
+```
+
+* Create variables to identify the data url and data zip file
+
+```{r}
+fileURL <- "https://d396qusza40orc.cloudfront.net/getdata%2Fprojectfiles%2FUCI%20HAR%20Dataset.zip"
+UCIHARDataset <- "./data/UCI HAR Dataset.zip"
+```
+
+* Check if 'data' directory exists
+* Create 'data' if it does not
+
+```{r}
+if (!file.exists("data")) {
+  dir.create("data")
+}
+```
+
+* Check if 'UCIHARDataset' file exists
+* Download file as 'UCIHARDataset' if it does not
+* Extract files from the zipped folder
+* Place files in 'data' directory
+
+```{r}
+if (!file.exists(UCIHARDataset)){
+  download.file(fileURL, destfile = UCIHARDataset, mode = "wb")
+  unzip(UCIHARDataset, exdir = "./data")
+  dateDownloaded <- date()
+}
+```
+
+* Read in features.txt, comprised of the 561 feature descriptions
+* Rename the columns in the 'features' dataframe
+* Extract the feature descriptions into 'feature_names' vector
+* Tidy up the feature descriptions in 'feature_names' so they are easier to read and understand
+
+```{r}
+features <- read.table("./data/UCI HAR Dataset/features.txt", stringsAsFactors = F)
+features <- rename(features, feature_no = V1, feature_name = V2) 
+feature_names <- features$feature_name
+feature_names <- sub("^f", "frequency_", feature_names)
+feature_names <- sub("^t", "time_", feature_names)
+feature_names <- sub("Acc", "accelerometer_", feature_names)
+feature_names <- sub("Gyro", "gyroscope_", feature_names)
+feature_names <- sub("Mag", "magnitude_", feature_names)
+feature_names <- sub("Gravity", "gravity_", feature_names)
+feature_names <- sub("Jerk", "jerk_", feature_names)
+feature_names <- sub("BodyBody", "body_", feature_names)
+feature_names <- sub("Body", "body_", feature_names)
+feature_names <- gsub("-", "", feature_names)
+feature_names <- tolower(feature_names)
+```
+
+* Read in X_train.txt, comprised of readings from the training set 
+* Rename the 561 columns in the 'X_train' dataframe using the 561 feature descriptions in 'feature_names' vector
+
+```{r}
+X_train <- read.table("./data/UCI HAR Dataset/train/X_train.txt", stringsAsFactors = F)
+colnames(X_train) <- feature_names
+```
+
+* Read in X_test.txt, comprised of readings from the test set 
+* Rename the 561 columns in the 'X_test' dataframe using the 561 feature descriptions in 'feature_names' vector
+
+```{r}
+X_test <- read.table("./data/UCI HAR Dataset/test/X_test.txt", stringsAsFactors = F) 
+colnames(X_test) <- feature_names 
+```
+
+* Read in activity_labels.txt, which links the class labels with their activity name
+* Rename the two columns in the 'activity_labels' dataframe as activity_no & activity_type
+
+```{r}
+activity_labels <- read.table("./data/UCI HAR Dataset/activity_labels.txt", stringsAsFactors = F)
+activity_labels <- rename(activity_labels, activity_no = V1, activity_type = V2)
+```
+
+* Read in Y_train.txt, comprised of training labels
+* Rename the lone column in the 'Y_train' dataframe as activity_no
+* Left join the 'Y_train' dataframe to 'activity_labels' dataframe to add activity_type column using activity_no field as key 
+
+```{r}
+Y_train <- read.table("./data/UCI HAR Dataset/train/Y_train.txt", stringsAsFactors = F) 
+Y_train <- rename(Y_train, activity_no = V1)
+Y_train <- join(Y_train, activity_labels, by= "activity_no") 
+```
+
+* Read in Y_test.txt, comprised of test labels
+* Rename the lone column in the 'Y_test' dataframe as activity_no
+* Left join the 'Y_test' dataframe to 'activity_labels' dataframe to add activity_type column using activity_no field as key 
+
+```{r}
+Y_test <- read.table("./data/UCI HAR Dataset/test/Y_test.txt", stringsAsFactors = F) 
+Y_test <- rename(Y_test, activity_no = V1)
+Y_test <- join(Y_test, activity_labels, by= "activity_no")  
+```
+
+* Read in subject_train.txt, comprised of identifications of the 30 subjects who performed the activity for each window sample
+* Rename the lone column in the 'subject_train' dataframe as subject_id
+
+```{r}
+subject_train <- read.table("./data/UCI HAR Dataset/train/subject_train.txt", stringsAsFactors = F) 
+subject_train <- rename(subject_train, subject_id = V1) 
+```
+
+* Read in subject_test.txt, comprised of identifications of the 30 subjects who performed the activity for each window sample
+* Rename the lone column in the 'subject_test' dataframe as subject_id
+
+```{r}
+subject_test <- read.table("./data/UCI HAR Dataset/test/subject_test.txt", stringsAsFactors = F) 
+subject_test <- rename(subject_test, subject_id = V1) 
+```
+
+* Combine the three train dataframes 'X_train', 'Y_train', & 'subject_train' by column as 'cbind_train' dataframe
+* Combine the three test dataframes 'X_test', 'Y_test', & 'subject_test' by column as 'cbind_test' dataframe
+* Combine the two resulting dataframes 'cbind_train' & 'cbind_test' by row as 'rbind_dataset' dataframe
+
+```{r}
+cbind_train <- cbind(X_train, Y_train, subject_train) 
+cbind_test <- cbind(X_test, Y_test, subject_test) 
+rbind_dataset <- rbind(cbind_train, cbind_test) 
+```
+
+* Create vector, 'colgr' of column names that include including "mean()" and/or "std()" (but exclude "meanFreq()") from 'rbind_dataset' 
+
+```{r}
+colgr <- grep("mean\\()|std\\()", names(rbind_dataset), value = TRUE) 
+```
+
+* Subset the 'rbind_dataset' dataframe to include only columns identifying the subject and activity as well as those included in the 'colgr' vector
+
+```{r}
+subset_data <- rbind_dataset[ , c('subject_id', 'activity_type', colgr)] 
+```
+
+* Melt the resulting 'subset_data' dataframe using the columns identifying the subject and activity into 'subset_data_melt' datafram
+
+```{r}
+subset_data_melt <- melt(subset_data, id = c('subject_id', 'activity_type')) 
+```
+
+* Cast the resulting molten data frame into 'subset_data_mean' data frame to return average of each variable for each activity and subject
+
+```{r}
+subset_data_mean <- dcast(subset_data_melt, subject_id + activity_type ~ variable, mean)
+```
+
+* Export text file containing resulting data
+
+```{r}
+write.table(subset_data_mean, file = "TidyDataSet.txt", row.names = FALSE) 
+```
+}
+```
